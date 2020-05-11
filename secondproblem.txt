@@ -1,0 +1,10 @@
+
+Solving Air Cargo Problem 2 using breadth_first_search...
+
+Expansions   Goal Tests   New Nodes
+   1728        1728       11664   
+
+The selected planner did not find a solution for this problem. Make sure you have completed the AirCargoProblem implementation and pass all unit tests first.
+
+
+Solving Air Cargo Problem 2 using breadth_first_tree_search...
