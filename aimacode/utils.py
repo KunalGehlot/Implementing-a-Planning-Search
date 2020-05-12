@@ -3,14 +3,14 @@
 import bisect
 import collections
 import collections.abc
-import functools
 import operator
 import os.path
 import random
 import math
 
 import heapq
-from collections import defaultdict, deque
+from functools import lru_cache
+from collections import namedtuple, deque, Counter, defaultdict
 
 # ______________________________________________________________________________
 # Functions on Sequences and Iterables
@@ -62,209 +62,7 @@ def is_in(elt, seq):
     """Similar to (elt in seq), but compares with 'is', not '=='."""
     return any(x is elt for x in seq)
 
-# ______________________________________________________________________________
-# argmin and argmax
 
-identity = lambda x: x
-
-argmin = min
-argmax = max
-
-
-def argmin_random_tie(seq, key=identity):
-    """Return a minimum element of seq; break ties at random."""
-    return argmin(shuffled(seq), key=key)
-
-
-def argmax_random_tie(seq, key=identity):
-    "Return an element with highest fn(seq[i]) score; break ties at random."
-    return argmax(shuffled(seq), key=key)
-
-
-def shuffled(iterable):
-    "Randomly shuffle a copy of iterable."
-    items = list(iterable)
-    random.shuffle(items)
-    return items
-
-
-
-# ______________________________________________________________________________
-# Statistical and mathematical functions
-
-
-def histogram(values, mode=0, bin_function=None):
-    """Return a list of (value, count) pairs, summarizing the input values.
-    Sorted by increasing value, or if mode=1, by decreasing count.
-    If bin_function is given, map it over values first."""
-    if bin_function:
-        values = map(bin_function, values)
-
-    bins = {}
-    for val in values:
-        bins[val] = bins.get(val, 0) + 1
-
-    if mode:
-        return sorted(list(bins.items()), key=lambda x: (x[1], x[0]),
-                      reverse=True)
-    else:
-        return sorted(bins.items())
-
-
-def dotproduct(X, Y):
-    """Return the sum of the element-wise product of vectors X and Y."""
-    return sum(x * y for x, y in zip(X, Y))
-
-
-def element_wise_product(X, Y):
-    """Return vector as an element-wise product of vectors X and Y"""
-    assert len(X) == len(Y)
-    return [x * y for x, y in zip(X, Y)]
-
-
-def matrix_multiplication(X_M, *Y_M):
-    """Return a matrix as a matrix-multiplication of X_M and arbitary number of matrices *Y_M"""
-
-    def _mat_mult(X_M, Y_M):
-        """Return a matrix as a matrix-multiplication of two matrices X_M and Y_M
-        >>> matrix_multiplication([[1, 2, 3],
-                                   [2, 3, 4]],
-                                   [[3, 4],
-                                    [1, 2],
-                                    [1, 0]])
-        [[8, 8],[13, 14]]
-        """
-        assert len(X_M[0]) == len(Y_M)
-
-        result = [[0 for i in range(len(Y_M[0]))] for j in range(len(X_M))]
-        for i in range(len(X_M)):
-            for j in range(len(Y_M[0])):
-                for k in range(len(Y_M)):
-                    result[i][j] += X_M[i][k] * Y_M[k][j]
-        return result
-
-    result = X_M
-    for Y in Y_M:
-        result = _mat_mult(result, Y)
-
-    return result
-
-
-def vector_to_diagonal(v):
-    """Converts a vector to a diagonal matrix with vector elements
-    as the diagonal elements of the matrix"""
-    diag_matrix = [[0 for i in range(len(v))] for j in range(len(v))]
-    for i in range(len(v)):
-        diag_matrix[i][i] = v[i]
-
-    return diag_matrix
-
-
-def vector_add(a, b):
-    """Component-wise addition of two vectors."""
-    return tuple(map(operator.add, a, b))
-
-
-
-def scalar_vector_product(X, Y):
-    """Return vector as a product of a scalar and a vector"""
-    return [X * y for y in Y]
-
-
-def scalar_matrix_product(X, Y):
-    return [scalar_vector_product(X, y) for y in Y]
-
-
-def inverse_matrix(X):
-    """Inverse a given square matrix of size 2x2"""
-    assert len(X) == 2
-    assert len(X[0]) == 2
-    det = X[0][0] * X[1][1] - X[0][1] * X[1][0]
-    assert det != 0
-    inv_mat = scalar_matrix_product(1.0/det, [[X[1][1], -X[0][1]], [-X[1][0], X[0][0]]])
-
-    return inv_mat
-
-
-def probability(p):
-    "Return true with probability p."
-    return p > random.uniform(0.0, 1.0)
-
-
-def weighted_sample_with_replacement(seq, weights, n):
-    """Pick n samples from seq at random, with replacement, with the
-    probability of each element in proportion to its corresponding
-    weight."""
-    sample = weighted_sampler(seq, weights)
-
-    return [sample() for _ in range(n)]
-
-
-def weighted_sampler(seq, weights):
-    "Return a random-sample function that picks from seq weighted by weights."
-    totals = []
-    for w in weights:
-        totals.append(w + totals[-1] if totals else w)
-
-    return lambda: seq[bisect.bisect(totals, random.uniform(0, totals[-1]))]
-
-
-def rounder(numbers, d=4):
-    "Round a single number, or sequence of numbers, to d decimal places."
-    if isinstance(numbers, (int, float)):
-        return round(numbers, d)
-    else:
-        constructor = type(numbers)     # Can be list, set, tuple, etc.
-        return constructor(rounder(n, d) for n in numbers)
-
-
-def num_or_str(x):
-    """The argument is a string; convert to a number if
-       possible, or strip it.
-    """
-    try:
-        return int(x)
-    except ValueError:
-        try:
-            return float(x)
-        except ValueError:
-            return str(x).strip()
-
-
-def normalize(dist):
-    """Multiply each number by a constant such that the sum is 1.0"""
-    if isinstance(dist, dict):
-        total = sum(dist.values())
-        for key in dist:
-            dist[key] = dist[key] / total
-            assert 0 <= dist[key] <= 1, "Probabilities must be between 0 and 1."
-        return dist
-    total = sum(dist)
-    return [(n / total) for n in dist]
-
-
-def clip(x, lowest, highest):
-    """Return x clipped to the range [lowest..highest]."""
-    return max(lowest, min(x, highest))
-
-
-def sigmoid(x):
-    """Return activation value of x with sigmoid function"""
-    return 1/(1 + math.exp(-x))
-
-
-def step(x):
-    """Return activation value of x with sign function"""
-    return 1 if x >= 0 else 0
-
-try:  # math.isclose was added in Python 3.5; but we might be in 3.4
-    from math import isclose
-except ImportError:
-    def isclose(a, b, rel_tol=1e-09, abs_tol=0.0):
-        "Return true if numbers a and b are close to each other."
-        return abs(a - b) <= max(rel_tol * max(abs(a), abs(b)), abs_tol)
-
-# ______________________________________________________________________________
 # Misc Functions
 
 
@@ -334,20 +132,6 @@ def print_table(table, header=None, sep='   ', numfmt='%g'):
             str(x), j)(size) for (j, size, x) in zip(justs, sizes, row)))
 
 
-def AIMAFile(components, mode='r'):
-    "Open a file based at the AIMA root directory."
-    aima_root = os.path.dirname(__file__)
-
-    aima_file = os.path.join(aima_root, *components)
-
-    return open(aima_file)
-
-
-def DataFile(name, mode='r'):
-    "Return a file in the AIMA /aimacode-data directory."
-    return AIMAFile(['aimacode-data', name], mode)
-
-
 # ______________________________________________________________________________
 # Expressions
 
@@ -359,51 +143,63 @@ class Expr(object):
     op is a str like '+' or 'sin'; args are Expressions.
     Expr('x') or Symbol('x') creates a symbol (a nullary Expr).
     Expr('-', x) creates a unary; Expr('+', x, 1) creates a binary."""
-
+    __slots__ = ["op", "args", "__hash"]
     def __init__(self, op, *args):
-        self.op = str(op)
+        self.op = op
         self.args = args
-        self.__hash = None
+        self.__hash = hash(self.op) ^ hash(self.args)
+
+    def __eq__(self, other):
+        return (isinstance(other, Expr)
+                and self.op == other.op
+                and self.args == other.args)
+
+    def __hash__(self): return self.__hash
+
+    # custom unary operator overloads to handle 
+    def __pos__(self): return self
+    def __neg__(self): return self.args[0] if '-' == self.op else Expr("-", self)
+    def __invert__(self): return self.args[0] if '~' == self.op else Expr("~", self)
 
     # Operator overloads
-    def __neg__(self):      return Expr('-', self)
-    def __pos__(self):      return Expr('+', self)
-    def __invert__(self):   return Expr('~', self)
+    # def __neg__(self): return Expr('-', self)
+    # def __pos__(self): return Expr('+', self)
+    # def __invert__(self): return Expr('~', self)
     def __add__(self, rhs): return Expr('+', self, rhs)
     def __sub__(self, rhs): return Expr('-', self, rhs)
     def __mul__(self, rhs): return Expr('*', self, rhs)
-    def __pow__(self, rhs): return Expr('**',self, rhs)
+    def __pow__(self, rhs): return Expr('**', self, rhs)
     def __mod__(self, rhs): return Expr('%', self, rhs)
     def __and__(self, rhs): return Expr('&', self, rhs)
     def __xor__(self, rhs): return Expr('^', self, rhs)
-    def __rshift__(self, rhs):   return Expr('>>', self, rhs)
-    def __lshift__(self, rhs):   return Expr('<<', self, rhs)
-    def __truediv__(self, rhs):  return Expr('/',  self, rhs)
+    def __rshift__(self, rhs): return Expr('>>', self, rhs)
+    def __lshift__(self, rhs): return Expr('<<', self, rhs)
+    def __truediv__(self, rhs): return Expr('/', self, rhs)
     def __floordiv__(self, rhs): return Expr('//', self, rhs)
-    def __matmul__(self, rhs):   return Expr('@',  self, rhs)
+    def __matmul__(self, rhs): return Expr('@', self, rhs)
 
     def __or__(self, rhs):
-        "Allow both P | Q, and P |'==>'| Q."
+        """Allow both P | Q, and P |'==>'| Q."""
         if isinstance(rhs, Expression):
             return Expr('|', self, rhs)
         else:
             return PartialExpr(rhs, self)
 
     # Reverse operator overloads
-    def __radd__(self, lhs): return Expr('+',  lhs, self)
-    def __rsub__(self, lhs): return Expr('-',  lhs, self)
-    def __rmul__(self, lhs): return Expr('*',  lhs, self)
-    def __rdiv__(self, lhs): return Expr('/',  lhs, self)
+    def __radd__(self, lhs): return Expr('+', lhs, self)
+    def __rsub__(self, lhs): return Expr('-', lhs, self)
+    def __rmul__(self, lhs): return Expr('*', lhs, self)
+    def __rdiv__(self, lhs): return Expr('/', lhs, self)
     def __rpow__(self, lhs): return Expr('**', lhs, self)
-    def __rmod__(self, lhs): return Expr('%',  lhs, self)
-    def __rand__(self, lhs): return Expr('&',  lhs, self)
-    def __rxor__(self, lhs): return Expr('^',  lhs, self)
-    def __ror__(self, lhs):  return Expr('|',  lhs, self)
-    def __rrshift__(self, lhs):   return Expr('>>',  lhs, self)
-    def __rlshift__(self, lhs):   return Expr('<<',  lhs, self)
-    def __rtruediv__(self, lhs):  return Expr('/',  lhs, self)
-    def __rfloordiv__(self, lhs): return Expr('//',  lhs, self)
-    def __rmatmul__(self, lhs):   return Expr('@', lhs, self)
+    def __rmod__(self, lhs): return Expr('%', lhs, self)
+    def __rand__(self, lhs): return Expr('&', lhs, self)
+    def __rxor__(self, lhs): return Expr('^', lhs, self)
+    def __ror__(self, lhs): return Expr('|', lhs, self)
+    def __rrshift__(self, lhs): return Expr('>>', lhs, self)
+    def __rlshift__(self, lhs): return Expr('<<', lhs, self)
+    def __rtruediv__(self, lhs): return Expr('/', lhs, self)
+    def __rfloordiv__(self, lhs): return Expr('//', lhs, self)
+    def __rmatmul__(self, lhs): return Expr('@', lhs, self)
 
     def __call__(self, *args):
         "Call: if 'f' is a Symbol, then f(0) == Expr('f', 0)."
@@ -411,17 +207,6 @@ class Expr(object):
             raise ValueError('can only do a call for a Symbol, not an Expr')
         else:
             return Expr(self.op, *args)
-
-    # Equality and repr
-    def __eq__(self, other):
-        "'x == y' evaluates to True or False; does not build an Expr."
-        return (isinstance(other, Expr)
-                and self.op == other.op
-                and self.args == other.args)
-
-    def __hash__(self):
-        self.__hash = self.__hash or hash(self.op) ^ hash(self.args)
-        return self.__hash
 
     def __repr__(self):
         op = self.op
@@ -476,6 +261,7 @@ class PartialExpr:
     def __repr__(self):          return "PartialExpr('{}', {})".format(self.op, self.lhs)
 
 
+@lru_cache()
 def expr(x):
     """Shortcut to create an Expression. x is a str in which:
     - identifiers are automatically defined as Symbols.
@@ -515,12 +301,8 @@ class defaultkeydict(collections.defaultdict):
 # ______________________________________________________________________________
 # Queues: Stack, FIFOQueue, PriorityQueue
 
-# TODO: Possibly use queue.Queue, queue.PriorityQueue
-# TODO: Priority queues may not belong here -- see treatment in search.py
-
 
 class Queue:
-
     """Queue is an abstract class/interface. There are three types:
         Stack(): A Last In First Out Queue.
         FIFOQueue(): A First In First Out Queue.
@@ -548,30 +330,30 @@ def Stack():
 
 
 class FIFOQueue(Queue):
-    """A First-In-First-Out Queue."""
-
+    """A First-In-First-Out Queue implemented with collections.deque
+    
+    MODIFIED FROM AIMA VERSION
+        - Use deque
+        - Use an additional dict to track membership
+    """
     def __init__(self):
-        self._queue = deque()
-        self._members = defaultdict(lambda: 0)
-
-    def __len__(self):
-        return len(self._queue)
-
-    def __contains__(self, item):
-        return self._members[item] > 0
+        self.A = deque()
+        self.__keys = set()
 
     def append(self, item):
-        self._queue.append(item)
-        self._members[item] += 1
+        self.A.append(item)
+        self.__keys.add(item)
 
-    def extend(self, items):
-        self._queue.extend(items)
-        self._members.update({k: self._members[k] + 1 for k in items})
+    def __len__(self):
+        return len(self.A)
 
     def pop(self):
-        item = self._queue.popleft()
-        self._members[item] -= 1
-        return item
+        key = self.A.popleft()
+        self.__keys.discard(key)
+        return key
+
+    def __contains__(self, item):
+        return item in self.__keys
 
 
 class PriorityQueue(Queue):
@@ -579,34 +361,33 @@ class PriorityQueue(Queue):
     order) is returned first.  Also supports dict-like lookup.
 
     MODIFIED FROM AIMA VERSION
-        - Use heapq & an additional dict to track membership
-        - remove __delitem__ (it is not strictly required)
+        - Use heapq
+        - Use an additional dict to track membership
     """
 
     def __init__(self, order=None, f=lambda x: x):
-        self._queue = []
-        self._members = defaultdict(lambda: 0)
-        self.priorityFn = f
-
-    def __len__(self):
-        return len(self._members)
-
-    def __contains__(self, item):
-        return self._members[item] > 0
-
-    def __getitem__(self, key):
-        if self._members[key] > 0:
-            return key
+        self.A = []
+        self._A = Counter()
+        self.f = f
 
     def append(self, item):
-        heapq.heappush(self._queue, (self.priorityFn(item), item))
-        self._members[item] += 1
+        heapq.heappush(self.A, (self.f(item), item))
+        self._A[item] += 1
+
+    def __len__(self):
+        return len(self.A)
 
     def pop(self):
-        _, item = heapq.heappop(self._queue)
-        self._members[item] -= 1
+        _, item = heapq.heappop(self.A)
+        self._A[item] -= 1
         return item
 
+    def __contains__(self, item):
+        return self._A[item] > 0
+
+    def __getitem__(self, key):
+        if self._A[key] > 0:
+            return key
 
 # ______________________________________________________________________________
 # Useful Shorthands

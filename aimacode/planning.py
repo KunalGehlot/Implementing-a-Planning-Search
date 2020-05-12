@@ -21,10 +21,10 @@ class Action:
     def __init__(self, action, precond, effect):
         self.name = action.op
         self.args = action.args
-        self.precond_pos = precond[0]
-        self.precond_neg = precond[1]
-        self.effect_add = effect[0]
-        self.effect_rem = effect[1]
+        self.precond_pos = set(precond[0])
+        self.precond_neg = set(precond[1])
+        self.effect_add = set(effect[0])
+        self.effect_rem = set(effect[1])
 
     def __call__(self, kb, args):
         return self.act(kb, args)
