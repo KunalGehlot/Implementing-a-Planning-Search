@@ -20,7 +20,8 @@ Find the official Readme for the project [here](default%20instructions.md)
   - [Example Problem](#example-problem)
   - [Test](#test)
     - [Running the test](#running-the-test)
-- [Report](#report)
+- [Results](#results)
+  - [Find the Results here](#find-the-results-here)
 
 
 ## Setting up Anaconda environment
@@ -114,7 +115,9 @@ To select the problems and search algorithm inline, enter the problem and search
 pypy3 run_search.py -p 1 2 3 -s 1 2 3 4 5
 ```
 
-## Report
+## Results
+
+### Find the Results [here](report.md)
 
 The file `report.pdf` includes all of the figures (charts and tables) and written responses to the questions below.
 
